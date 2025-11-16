@@ -1,0 +1,64 @@
+/**:
+  ros__parameters:
+
+    # ========= 全局参数（和 Cartographer voxel/filter 对齐个大概量级） =========
+    feature_extract_enable: false
+    point_filter_num: 3
+    max_iteration: 3
+    filter_size_surf: 0.25        # 对应你 Cartographer 的 voxel_filter_size = 0.25
+    filter_size_map: 0.25
+    cube_side_length: 100.0       # 地图立方体边长（单位 m），Go2 室内/走廊先用 100 足够
+    runtime_pos_log_enable: false
+
+    map_file_path: "/home/unitree/ros2_ws/LeggedRobot/src/Ros2SLAM/local/fastlio_map.pcd"
+
+    # ========= 话题名称：对齐 Cartographer =========
+    common:
+      lid_topic: "/SMX/Go2Lidar"   # ✅ 对应 cartographer remap 里的 points2 -> /SMX/Go2Lidar
+      imu_topic: "/SMX/Go2IMU"     # ✅ 对应 cartographer remap 里的 imu -> /SMX/Go2IMU
+
+      time_sync_en: false          # Go2 上 IMU 和 LiDAR 已同步的话保持 false
+      time_offset_lidar_to_imu: 0.0  # 暂时认为时延 0，有需要以后用 LI-Init 或 GRIL-Calib 校
+
+    # ========= 预处理：L1 当成“其他点云输入” =========
+    preprocess:
+      lidar_type: 4          # 1 Livox, 2 Velodyne, 3 Ouster, 4 其他 PointCloud2（L1 属于这个）
+      scan_line: 1           # L1 是非重复扫描，不是多线机械雷达，设 1 即可
+      blind: 0.5             # 对应 Cartographer 的 min_range = 0.5
+      timestamp_unit: 3      # 这里真实效果还取决于你 per-point time 字段：现在先占位
+      scan_rate: 11          # L1 刷新率，大概 10Hz，具体可改
+
+    # ========= LIO 状态估计参数 =========
+    mapping:
+      acc_cov: 1.0
+      gyr_cov: 1.0
+      b_acc_cov: 0.0001
+      b_gyr_cov: 0.0001
+
+      fov_degree: 360.0      # 等效视场（L1 实际不是 360，但先设大不会直接出问题）
+      det_range: 30.0        # 对应 Cartographer 的 max_range = 30.0
+
+      # 外参估计开关：先关掉，直接用你手工给的外参
+      extrinsic_est_en: false
+
+      # ===== LiDAR 在 IMU 坐标系（base_imu）下的位姿 =====
+      extrinsic_T: [0.31502, 0.0, -0.089145]
+      extrinsic_R: [
+        -0.965512, 0.0,       0.260358,
+        0.0,      1.0,       0.0,
+        -0.260358, 0.0,      -0.965512
+      ]
+
+
+    # ========= 发布选项 =========
+    publish:
+      path_en: true            # 发布轨迹 path
+      effect_map_en: false
+      map_en: true             # 发布当前地图点云
+      scan_publish_en: true    # 发布去畸变后的 scan
+      dense_publish_en: true   # 如果想看“稠密地图”可以开
+
+    # ========= PCD 保存 =========
+    pcd_save:
+      pcd_save_en: true
+      interval: -1       
