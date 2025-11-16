@@ -1,0 +1,7 @@
+# 忽略 SLAM 生成的大文件
+local/
+local*/        # 保险起见，把所有 local 前缀目录都忽略
+
+# 其他临时文件
+*.pyc
+__pycache__/
