@@ -2,7 +2,10 @@
 
 面向 **ROS 2 Humble / Ubuntu 22.04** 的多 SLAM 算法集成仓库，当前重点支持 **Unitree Go2 / 移动机器人平台**。本仓库将 SLAM 工作流封装为可复现的 ROS 2 包，统一输入/输出结构，便于在实验环境中快速部署与扩展。
 
-> 当前版本已提供：**Cartographer 3D SLAM（Lidar + IMU + Odom）完整流程**：在线建图 → 自动录包 → 话题重命名 → 保存 pbstream → 离线导出 3D 点云。
+> 当前版本已提供：
+>
+> * **Cartographer 3D SLAM（LiDAR + IMU + Odom）完整流程**：在线建图 → 自动录包 → 话题重命名 → 保存 pbstream → 离线导出 3D 点云。
+> * **KISS-ICP LiDAR Odometry（纯点云 3D 里程计）**：轻量级 ICP 前端，用于快速验证 LiDAR 点云质量与 TF 配置，可作为多源融合和高级 SLAM 的基线里程计。
 
 ---
 
@@ -53,10 +56,14 @@ source install/setup.bash
 
 ```text
 Ros2SLAM/
-├── cartographer_3d/      # 已实现的 3D SLAM 工作流
+├── cartographer_3d/      # Cartographer 3D SLAM 工作流
 │   ├── config/           # Lua 配置（SLAM + assets writer）
 │   ├── launch/           # 在线 SLAM + 自动录包
 │   └── rviz/             # RViz2 配置
+│
+├── kiss_icp/             # KISS-ICP LiDAR 里程计前端
+│   ├── ros/config/       # KISS-ICP ROS2 参数配置（config.yaml 等）
+│   └── ros/launch/       # KISS-ICP ROS2 启动文件（kiss_icp_node.lanuch.py 等）
 │
 ├── <future_slam_x>/      # 预留的其他 SLAM 方法目录（结构与 cartographer_3d 一致）
 │   ├── config/
@@ -66,7 +73,8 @@ Ros2SLAM/
 ├── local/                # SLAM 结果与中间文件
 │   ├── go2_slam_bag_*    # 在线录制的 rosbag 目录
 │   ├── go2_slam.pbstream # 保存的 Cartographer SLAM 状态
-│   └── go2_slam_assets*  # 离线导出的 3D 点云（PLY）
+│   ├── go2_slam_assets*  # 离线导出的 3D 点云（PLY）
+│   └── kiss_icp_*        # KISS-ICP 相关输出（轨迹评估、自定义日志等，按需添加）
 │
 └── README.md
 ```
@@ -93,7 +101,7 @@ Ros2SLAM/
 
 | 结果               | 形式                | 存放位置（默认）                                        |
 | ------------------ | ------------------- | ------------------------------------------------------- |
-| 在线 SLAM 地图     | TF / topic          | RViz2 中查看 `/map`、`/map_SLAM` 等                 |
+| 在线 SLAM 地图     | TF / topic          | RViz2 中查看 `/map`、`/map_0` 等                    |
 | SLAM 状态          | `*.pbstream` 文件 | `local/go2_slam.pbstream`                             |
 | 离线 3D 点云       | `*.ply` 文件      | `local/go2_slam_assets_points.ply` 等                 |
 | 原始/重命名 rosbag | 目录 +`.db3`      | `local/go2_slam_bag*/` / `local/go2_slam_bag_0/` 等 |
@@ -197,6 +205,65 @@ alias 3dslam='ros2 run cartographer_ros cartographer_assets_writer -- \
 ```
 
 可使用 **CloudCompare / MeshLab / RViz2** 对 `*.ply` 文件进行可视化与后处理。
+
+---
+
+## ⚙️ KISS-ICP LiDAR Odometry 工作流
+
+KISS-ICP 是 PR Bonn 提出的轻量级 LiDAR 里程计（LiDAR Odometry）算法，核心思想是将 **点到点 ICP（point-to-point ICP）做到极致**，在不依赖 ring/intensity 等附加字段的前提下，获得稳定且高效的 3D 里程计估计。
+
+在本仓库中，KISS-ICP 主要用于：
+
+* 作为 **LiDAR-only 里程计基线**，快速验证 Unitree L1 点云质量与 TF 配置；
+* 为后续的多源融合（如 robot_localization、LIO、VIO-LIO）提供参考轨迹；
+* 在不需要全局建图的场景下，提供轻量级实时里程计（`odom_kiss_icp`）。
+
+### 1️⃣ KISS-ICP ROS2 集成概览
+
+KISS-ICP 相关文件位于：
+
+```text
+Ros2SLAM/kiss_icp/
+├── ros/config/config.yaml              # KISS-ICP 参数配置（本仓库针对 Go2 + L1 调优）
+└── ros/launch/kiss_icp_node.lanuch.py # KISS-ICP ROS2 启动文件
+```
+
+**主要输入话题：**
+
+| 话题名            | 类型                        | 说明               |
+| ----------------- | --------------------------- | ------------------ |
+| `/SMX/Go2Lidar` | `sensor_msgs/PointCloud2` | Unitree L1 3D 点云 |
+
+> 当前配置默认将 LiDAR 自身坐标系 `utlidar_lidar` 作为 `base_frame`，避免外参缺失导致的 TF 错误；后续可根据标定将 `base_frame` 切换为 `base_link` / `base_imu`。
+
+**KISS-ICP 输出：**
+
+| 内容             | 形式                                    | 说明                                   |
+| ---------------- | --------------------------------------- | -------------------------------------- |
+| LiDAR 里程计 TF  | TF (`odom_kiss_icp → utlidar_lidar`) | 由 KISS-ICP 发布的 3D 里程计变换       |
+| LiDAR 里程计消息 | `nav_msgs/Odometry`                   | 话题名通常为 `/kiss_icp/odometry` 等 |
+
+### 2️⃣ 启动 KISS-ICP（在线 LiDAR 里程计）
+
+编译完成后，在 Go2 点云正常发布的前提下，可直接启动：
+
+```bash
+ros2 launch kiss_icp kiss_icp_node.lanuch.py
+```
+
+KISS-ICP 当前针对 **室内环境 + Go2 + Unitree L1** 的经验配置为：
+
+```text
+Ros2SLAM/kiss_icp/ros/config/config.yaml
+```
+
+> 以上参数是在多次实机测试基础上调优得到，兼顾 **Go2 步态抖动** 与 **室内几何结构**，可作为 LiDAR-only 里程计的默认配置。根据实际场景（室外大范围、窄走廊、高速运动）可以进一步微调 `max_range`、`voxel_size` 与 `initial_threshold`。
+
+### 5️⃣ 与其他模块的配合建议
+
+* 将 KISS-ICP 输出的 `odom_kiss_icp` 作为 **LiDAR-only 里程计源**，可与 Go2 原生 odom 在 RViz 中叠加对比，用于评估 L1 点云质量和 TF 配置正确性。
+* 在后续多源融合中（如 `robot_localization`），可将 `/kiss_icp/odometry` 作为一条独立的里程计输入，通过协方差矩阵控制其权重，与 IMU / 足端里程计共同估计全局 `odom`。
+* 对于需要全局一致地图的应用，仍建议使用 **Cartographer / Point-LIO 等带图优化的 SLAM** 维护 `map → odom`，而 KISS-ICP 专注于提供高频局部里程计。
 
 ---
 

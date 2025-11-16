@@ -5,7 +5,7 @@ options = {
   map_builder = MAP_BUILDER,
   trajectory_builder = TRAJECTORY_BUILDER,
 
-  map_frame = "map_SLAM",
+  map_frame = "map",
   tracking_frame = "base_imu",
   published_frame = "odom",
 
@@ -50,8 +50,8 @@ TRAJECTORY_BUILDER_3D.low_resolution_adaptive_voxel_filter.min_num_points  = 200
 TRAJECTORY_BUILDER_3D.ceres_scan_matcher.translation_weight = 10.0
 TRAJECTORY_BUILDER_3D.ceres_scan_matcher.rotation_weight    = 10.0
 
-POSE_GRAPH.optimization_problem.odometry_translation_weight = 1000.0
-POSE_GRAPH.optimization_problem.odometry_rotation_weight    = 1000.0
+POSE_GRAPH.optimization_problem.odometry_translation_weight = 10000.0
+POSE_GRAPH.optimization_problem.odometry_rotation_weight    = 10000.0
 POSE_GRAPH.optimization_problem.acceleration_weight         = 1.0
 POSE_GRAPH.optimization_problem.rotation_weight             = 1.0
 
