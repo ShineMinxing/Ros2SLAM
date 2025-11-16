@@ -81,22 +81,22 @@ Ros2SLAM/
 
 **主要输入话题（来自 Go2 / 机器人底盘）：**
 
-| 话题名             | 类型                        | 说明           |
-| --------------- | ------------------------- | ------------ |
-| `/SMX/Go2Lidar` | `sensor_msgs/PointCloud2` | 3D 激光点云      |
-| `/SMX/Go2IMU`   | `sensor_msgs/Imu`         | 惯性测量单元       |
-| `/SMX/Odom`     | `nav_msgs/Odometry`       | 轮式或融合里程计     |
-| `/tf`           | `tf2_msgs/TFMessage`      | 动态 TF 树      |
+| 话题名            | 类型                        | 说明                  |
+| ----------------- | --------------------------- | --------------------- |
+| `/SMX/Go2Lidar` | `sensor_msgs/PointCloud2` | 3D 激光点云           |
+| `/SMX/Go2IMU`   | `sensor_msgs/Imu`         | 惯性测量单元          |
+| `/SMX/Odom`     | `nav_msgs/Odometry`       | 轮式或融合里程计      |
+| `/tf`           | `tf2_msgs/TFMessage`      | 动态 TF 树            |
 | `/tf_static`    | `tf2_msgs/TFMessage`      | 静态 TF（传感器标定） |
 
 **关键输出：**
 
-| 结果            | 形式              | 存放位置（默认）                                           |
-| ------------- | --------------- | -------------------------------------------------- |
-| 在线 SLAM 地图    | TF / topic      | RViz2 中查看 `/map`、`/map_SLAM` 等                     |
-| SLAM 状态       | `*.pbstream` 文件 | `local/go2_slam.pbstream`                          |
-| 离线 3D 点云      | `*.ply` 文件      | `local/go2_slam_assets_points.ply` 等               |
-| 原始/重命名 rosbag | 目录 + `.db3`     | `local/go2_slam_bag*/` / `local/go2_slam_bag_0/` 等 |
+| 结果               | 形式                | 存放位置（默认）                                        |
+| ------------------ | ------------------- | ------------------------------------------------------- |
+| 在线 SLAM 地图     | TF / topic          | RViz2 中查看 `/map`、`/map_SLAM` 等                 |
+| SLAM 状态          | `*.pbstream` 文件 | `local/go2_slam.pbstream`                             |
+| 离线 3D 点云       | `*.ply` 文件      | `local/go2_slam_assets_points.ply` 等                 |
+| 原始/重命名 rosbag | 目录 +`.db3`      | `local/go2_slam_bag*/` / `local/go2_slam_bag_0/` 等 |
 
 ---
 
@@ -162,8 +162,7 @@ ros2 run rosbagtopic_rename rosbagtopic_rename_node
 在在线 SLAM 运行完成后，通过服务调用将图优化结果写入 pbstream 文件：
 
 ```bash
-ros2 service call /write_state cartographer_ros_msgs/srv/WriteState \
-  "{filename: '~/ros2_ws/LeggedRobot/src/Ros2SLAM/local/go2_slam.pbstream', include_unfinished_submaps: true}"
+alias slamsave="ros2 service call /write_state cartographer_ros_msgs/srv/WriteState \"{filename: '/home/unitree/ros2_ws/LeggedRobot/src/Ros2SLAM/local/go2_slam.pbstream', include_unfinished_submaps: true}\""
 ```
 
 执行成功后，将在 `local/` 目录下生成：
@@ -181,12 +180,12 @@ ros2 service call /write_state cartographer_ros_msgs/srv/WriteState \
 利用 Cartographer 自带的 assets writer，将 pbstream 与重命名后的 rosbag 组合，离线生成 3D 点云：
 
 ```bash
-ros2 run cartographer_ros cartographer_assets_writer -- \
-  -configuration_directory ~/ros2_ws/LeggedRobot/src/Ros2SLAM/cartographer_3d/config \
+alias 3dslam='ros2 run cartographer_ros cartographer_assets_writer -- \
+  -configuration_directory /home/unitree/ros2_ws/LeggedRobot/src/Ros2SLAM/cartographer_3d/config \
   -configuration_basename go2_assets_writer_3d.lua \
-  -bag_filenames ~/ros2_ws/LeggedRobot/src/Ros2SLAM/local/go2_slam_bag_0/go2_slam_bag_0_0.db3 \
-  -pose_graph_filename ~/ros2_ws/LeggedRobot/src/Ros2SLAM/local/go2_slam.pbstream \
-  -output_file_prefix ~/ros2_ws/LeggedRobot/src/Ros2SLAM/local/go2_slam_assets
+  -bag_filenames /home/unitree/ros2_ws/LeggedRobot/src/Ros2SLAM/local/go2_slam_bag_0/go2_slam_bag_0_0.db3 \
+  -pose_graph_filename /home/unitree/ros2_ws/LeggedRobot/src/Ros2SLAM/local/go2_slam.pbstream \
+  -output_file_prefix /home/unitree/ros2_ws/LeggedRobot/src/Ros2SLAM/local/go2_slam_assets'
 ```
 
 完成后，`local/` 目录中将包含：

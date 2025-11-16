@@ -54,6 +54,11 @@ def generate_launch_description():
     )
 
     # 3) rosbag2 录制 Go2 的关键话题
+    clean_old_bag = ExecuteProcess(
+        cmd=['rm', '-rf', bag_output_prefix],
+        output='screen'
+    )
+
     rosbag_record = ExecuteProcess(
         cmd=[
             'ros2', 'bag', 'record',
@@ -69,6 +74,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         cartographer_node,
+        clean_old_bag,
         occupancy_grid_node,
         rosbag_record,
     ])
