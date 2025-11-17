@@ -7,6 +7,7 @@
 > * **Cartographer 3D SLAM（LiDAR + IMU + Odom）完整流程**：在线建图 → 自动录包 → 话题重命名 → 保存 pbstream → 离线导出 3D 点云。
 > * **KISS-ICP LiDAR Odometry（纯点云 3D 里程计）**：轻量级 ICP 前端，用于快速验证 LiDAR 点云质量与 TF 配置，可作为多源融合和高级 SLAM 的基线里程计。
 > * **FAST-LIO2（LiDAR-IMU 高性能紧耦合 LIO）**：为 Unitree Go2 + L1 提供高频 3D 里程计与稠密点云地图，可导出 3D PCD 地图供离线处理。
+> * **Point-LIO（LiDAR-IMU 紧耦合高带宽 LIO）**：基于 HKU-MARS Point-LIO 的 ROS2 集成，面向非重复扫描 LiDAR（Unitree L1）优化，支持 Go2 上的高频 LIO 与在线建图。
 
 ---
 
@@ -27,6 +28,11 @@ Ros2SLAM/
 │   ├── config/           # FAST-LIO2 参数配置（go2_l1.yaml 等）
 │   ├── launch/           # FAST-LIO2 启动文件（fast_lio.launch.py 等）
 │   └── rviz/             # FAST-LIO2 RViz 配置（fastlio.rviz）
+│
+├── point_lio/            # Point-LIO LiDAR-IMU 里程计 / 建图
+│   ├── config/           # Point-LIO 参数（go2_l1.yaml：与 /SMX/* 话题对齐）
+│   ├── launch/           # Point-LIO 启动文件（point_lio.launch.py 等）
+│   └── rviz_cfg/         # Point-LIO RViz 配置（loam_livox.rviz 等）
 │
 ├── <future_slam_x>/      # 预留的其他 SLAM 方法目录（结构与 cartographer_3d 一致）
 │   ├── config/
@@ -365,6 +371,49 @@ ros2 service call /map_save std_srvs/srv/Trigger "{}"
 
 成功后，可在 `local/` 目录查看导出的 3D PCD 地图（可用 CloudCompare / Open3D 可视化或转换为 2D 栅格地图）。
 
+---
+
+## ⚡ Point-LIO LiDAR-IMU SLAM 工作流
+
+Point-LIO 是 HKU-MARS 提出的高带宽 LiDAR-IMU 紧耦合里程计系统，专门针对 **非重复扫描 LiDAR + 高频 IMU** 场景设计。相较于 FAST-LIO2，Point-LIO 更强调逐点时间戳利用与高频状态更新，适合作为 **Unitree Go2 + L1** 平台上的 LIO 基线。
+
+在本仓库中，`point_lio/` 提供了：
+
+* 与 Go2 统一的话题命名：直接订阅 `/SMX/Go2Lidar` 与 `/SMX/Go2IMU`；
+* 与 FAST-LIO2 共用的 IMU-LiDAR 外参（基于 base_imu → Go2Lidar 标定）；
+* 一套面向室内环境和走廊场景调优的默认参数 `config/go2_l1.yaml`；
+* 简洁的 ROS2 启动入口 `launch/point_lio.launch.py`，可选启用 RViz2 可视化。
+
+### 1️⃣ 目录结构
+
+```text
+Ros2SLAM/point_lio/
+├── config/
+│   └── go2_l1.yaml          # Go2 + L1 的 LIO 参数（话题 / 时间戳单位 / 外参等）
+├── launch/
+│   └── point_lio.launch.py  # Point-LIO 主启动文件
+└── rviz_cfg/
+    └── loam_livox.rviz      # Point-LIO 默认 RViz 配置
+```
+
+### 2️⃣ 关键配置：go2_l1.yaml
+
+`config/go2_l1.yaml` 已与本仓库其他 SLAM 算法保持一致的 I/O 约定：
+
+> 建议在真实实验前，使用 `ros2 topic echo /SMX/Go2IMU` 确认 IMU 频率，以便将 `imu_time_inte` 精确设置为 `1 / 频率`；同时确认 `/SMX/Go2Lidar` 中点云的 `time` 字段单位是否为秒，对应 `timestamp_unit`。
+
+### 3️⃣ 启动 Point-LIO（在线 LIO + 建图）
+
+完成编译后，在 Go2 点云与 IMU 正常发布的前提下，可直接启动：
+
+```bash
+ros2 launch point_lio point_lio.launch.py
+```
+
+`launch/point_lio.launch.py` 默认：
+
+* 载入 `config/go2_l1.yaml` 中的 LIO 配置；
+* 启动 `pointlio_mapping` 主节点，执行 LiDAR-IMU 紧耦合状态估计；
 ---
 
 ## 🧩 扩展与复用建议
