@@ -12,7 +12,7 @@
 
     preprocess:
       lidar_type: 5                   # 保持 L1/L2 类型
-      scan_line: 18                   # L1 = 18 线
+      scan_line: 72                   # L1 = 18 线
       # Go2Lidar 点云里 PointField "time" 的单位：
       # - 如果是“秒”，保持 0
       # - 如果是“微秒”，改成 2

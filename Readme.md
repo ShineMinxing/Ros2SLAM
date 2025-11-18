@@ -11,6 +11,12 @@
 
 ---
 
+## 🏗️ 生态仓库详细信息参见
+
+[https://github.com/ShineMinxing/Ros2Go2Estimator](https://github.com/ShineMinxing/Ros2Go2Estimator)
+
+---
+
 ## 📂 仓库结构
 
 ```text
